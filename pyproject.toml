@@ -1,7 +1,11 @@
 [project]
+authors = [
+{name = "Belinda Kusuma", email="belinda.kusuma@eng.ox.ac.uk"}
+]
+
 name = "resonance-excitable-media"
 version = "0.1.0"
-description = "Add your description here"
+description = "Code for simulation of resonance in excitable media"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -10,3 +14,15 @@ dependencies = [
     "scikit-image>=0.26.0",
     "scipy>=1.17.1",
 ]
+
+[project.scripts]
+resonance = "resonance_excitable_media.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "resonance_excitable_media"
+]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-build-scripts"]
