@@ -1,14 +1,15 @@
 {
-    "parameters": {
-        "discretisation": {
-            "grid_size": [100, 100],
-            "spatial_step_size": [1, 1],
-            "temporal_step_size": 0.1
-        },
-        "fitzhugh_nagumo_constants": {
-            "a" : 0.75,
-            "b": 0.01,
-            "epsilon": 0.05
-        }
-    }
+    "discretisation": {
+        "grid_size": [100, 100],
+        "spatial_step_size": [1, 1],
+        "temporal_step_size": 0.1
+    },
+    "fitzhugh_nagumo_constants": {
+        "a" : 0.75,
+        "b": 0.01,
+        "epsilon": 0.05
+    }, 
+    "diffusion_constant": 0.7,
+    "noise_intensity": 0.2,
+    "simulation_time": 15
 } 

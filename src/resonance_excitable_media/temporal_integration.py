@@ -1,3 +1,14 @@
+"""Temporal integration of the excitable media. 
+
+Modification of FitzHugh Nagumo and isotropic diffusion done according to 
+{
+M. Perc, ‘Spatial coherence resonance in excitable media’, 
+Phys. Rev. E, vol. 72, no. 1, p. 016207, Jul. 2005, 
+doi: 10.1103/PhysRevE.72.016207.
+}
+
+Anisotropic diffusion is own derivation.
+"""
 import numpy as np
 
 from src.helper.datatypes import (
@@ -9,9 +20,21 @@ from src.helper.datatypes import (
 
 def fitzhugh_nagumo_equation(
     fitzhugh_nagumo_constants: FitzHughNagumoConstants,
-    membrane_potential,
-    potassium_conductance,
-):
+    membrane_potential: np.ndarray,
+    potassium_conductance: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate the FitzHugh Nagumo equation at each timestep.
+
+    Args:
+        fitzhugh_nagumo_constants (FitzHughNagumoConstants): the constants for FHN
+        membrane_potential (np.ndarray): membrane potential (u) at each timestep
+        potassium_conductance (np.ndarray): potassium conductance (v) at each timestep
+
+    Returns:
+        f_uv (np.ndarray): modified FHN term for membrane potential time derivative
+        g_uv (np.ndarray): modified FHN term for potassium conductance time derivative
+    """
+    # TODO: CHECK ARRAY SIZES
     # Calculate the FitzHugh-Nagumo equations for all elements in the grid, except for the
     # boundaries
     # Modify for well-behaved behaviour according to Perc, 2005
@@ -46,6 +69,24 @@ def temporal_integration(
     diffusion_term: np.ndarray,
     noise: np.ndarray,
 ):
+    """Do one step of the temporal integration according to FHN term
+
+    Args:
+        new_membrane_potential (np.ndarray): container for the membrane potential at the n+1 
+            time-step
+        old_membrane_potential (np.ndarray): membrane potential at n time-step
+        new_potassium_conductance (np.ndarray): container for the potassium conductance at the n+1 
+            timestep
+        old_potassium_conductance (np.ndarray): potassium conductance at n time-step
+        temporal_step_size (float): time step
+        f_uv (np.ndarray): FHN term for the membrane potential derivative at n time-step
+        g_uv (np.ndarray): FHN term for the potassium conductance at n time-step
+        diffusion_term (np.ndarray): diffusion term (depending on the spatial derivative)
+        noise (np.ndarray): noise at n time-step. Should have (size-2) than the membrane potential 
+            size
+    """
+    # TODO: CHECK ARRAY SIZES
+
     new_membrane_potential[1:-1, 1:-1] = (
         f_uv + diffusion_term + noise
     ) * temporal_step_size + old_membrane_potential[1:-1, 1:-1]
@@ -57,6 +98,13 @@ def temporal_integration(
 def neumann_boundary_condition(
     membrane_potential: np.ndarray, potassium_conductance: np.ndarray
 ):
+    """Calculate the boundary condition according the Neumann description (spatial derivative = 0)
+
+    Args:
+        membrane_potential (np.ndarray): membrane potential at timestep n+1
+        potassium_conductance (np.ndarray): potassium conductance at timestep n+1
+    """
+    # TODO: CHECK ARRAY SIZES
     membrane_potential[0, :] = membrane_potential[1, :]
     potassium_conductance[0, :] = potassium_conductance[1, :]
 
@@ -78,6 +126,20 @@ def anisotropic_diffusion(
     noise: np.ndarray,
     diffusion_tensor: DiffusionTensor,
 ) -> ExcitableMedia:
+    """Run the simulation with anisotropic diffusion of the media.
+
+    Args:
+        fitzhugh_nagumo_constants (FitzHughNagumoConstants): the constants for FHN
+        discretisation_parameters (DiscretisationParameters): parameters for discretisation of the 
+            simulation domain
+        timepoints (np.ndarray): timepoints for the simulation
+        excitable_media (ExcitableMedia): container for the values of the media
+        noise (np.ndarray): noise that is generated
+        diffusion_tensor (DiffusionTensor): diffusion tensor for each pixel of the simulation domain
+
+    Returns:
+        ExcitableMedia: values of the media after simulation
+    """
     # TODO: CHECK SIZES ON THE ARRAYS
 
     for t in range(len(timepoints) - 1):
@@ -152,6 +214,20 @@ def isotropic_diffusion(
     noise: np.ndarray,
     diffusion_constant: float,
 ) -> ExcitableMedia:
+    """Run the simulation with isotropic diffusion of the media.
+
+    Args:
+        fitzhugh_nagumo_constants (FitzHughNagumoConstants): the constants for FHN
+        discretisation_parameters (DiscretisationParameters): parameters for discretisation of the 
+            simulation domain
+        timepoints (np.ndarray): timepoints for the simulation
+        excitable_media (ExcitableMedia): container for the values of the media
+        noise (np.ndarray): noise that is generated
+        diffusion_constant (float): diffusion constant that is the same for each pixel in the media
+
+    Returns:
+        ExcitableMedia: values of the media after simulation
+    """
     # TODO: CHECK SIZES ON THE ARRAYS
 
     for t in range(len(timepoints) - 1):
@@ -202,7 +278,3 @@ def isotropic_diffusion(
         )
 
     return excitable_media
-
-
-if __name__ == "__main__":
-    print("TESTING!")
