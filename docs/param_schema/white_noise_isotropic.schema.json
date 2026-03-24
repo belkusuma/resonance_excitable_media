@@ -1,0 +1,45 @@
+{
+    "type" : "object",
+    "properties":
+    {
+        "discretisation":
+        {
+            "type" : "object",
+            "properties": 
+            {
+                "grid_size" : 
+                {
+                    "type" : "array",
+                    "items": {
+                        "type": "number"
+                    },
+                "minItems": 2,
+                "maxItems": 2    
+                },
+                "spatial_step_size":
+                {
+                    "type" : "array",
+                    "items": {
+                        "type": "number"
+                    },
+                "minItems": 2,
+                "maxItems": 2    
+                },
+                "temporal_step_size" : {"type" : "number"}
+            }
+        },
+        "fitzhugh_nagumo_constants":
+        {
+            "type": "object",
+            "properties":
+            {
+                "a" : {"type": "number"},
+                "b" : {"type": "number"},
+                "epsilon": {"type":"number"}
+            }
+        },
+        "diffusion_constants": {"type" : "number"},
+        "simulation_time" : {"type": "number"},
+        "noise_intensity": {"type": "number"}
+    }
+}

@@ -10,6 +10,6 @@
         "epsilon": 0.05
     }, 
     "diffusion_constant": 0.7,
-    "noise_intensity": 0.2,
-    "simulation_time": 15
+    "simulation_time": 15,
+    "noise_intensity": 0.2
 } 

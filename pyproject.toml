@@ -9,6 +9,7 @@ description = "Code for simulation of resonance in excitable media"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "jsonschema>=4.26.0",
     "matplotlib>=3.10.8",
     "numpy>=2.4.3",
     "scikit-image>=0.26.0",

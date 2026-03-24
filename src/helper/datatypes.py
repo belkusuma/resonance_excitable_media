@@ -1,6 +1,18 @@
+"""File for all the datatypes."""
 from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
 
 import numpy as np
+class NoiseType(Enum):
+    """Noise type for generation."""
+    WHITE = 0
+    CORRELATED = 1
+
+class DiffusionType(Enum):
+    """Diffusion type."""
+    ISOTROPIC = 0
+    ANISOTROPIC = 1
 
 @dataclass
 class FitzHughNagumoConstants:
@@ -16,14 +28,6 @@ class DiscretisationParameters:
     spatial_step_size: list[float] # Should be dx, dy
     temporal_step_size: float
 
-@dataclass
-class SimulationParameters:
-    """Parameters for simulation that is then read from a json file."""
-    fitzhugh_nagumo_constants: FitzHughNagumoConstants
-    discretisation_parameters : DiscretisationParameters
-    diffusion_constant: float
-    noise_intensity: float
-    simulation_time: float
 
 @dataclass
 class ExcitableMedia:
@@ -37,3 +41,14 @@ class DiffusionTensor:
     d_xx: np.ndarray
     d_xy: np.ndarray
     d_yy: np.ndarray
+
+@dataclass
+class SimulationParameters:
+    """Parameters for simulation that is then read from a json file."""
+    fitzhugh_nagumo_constants: FitzHughNagumoConstants
+    discretisation_parameters : DiscretisationParameters
+    diffusion_constant: float | DiffusionTensor
+    simulation_time: float
+    noise_intensity: float
+    spatial_noise_correlation: Optional[float] = None
+    temporal_noise_correlation: Optional[float] = None
