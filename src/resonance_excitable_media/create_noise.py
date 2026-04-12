@@ -1,5 +1,5 @@
 """
-Generating spatiotemporally correlated noise
+Generating spatiotemporally correlated noise.
 Adapted from
 {
     J. García Ojalvo, J. M. Sancho, and L. Ramírez Piscina,
