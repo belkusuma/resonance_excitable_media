@@ -1,4 +1,4 @@
-"""Main script for running the simulation."""
+"""Script for running a single run and saving a video of the result."""
 
 import typer
 import pathlib
