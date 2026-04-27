@@ -1,5 +1,5 @@
 """
-Metrics for analysis of spatiotemporal coherence.
+Metrics and helper functions for analysis of spatiotemporal coherence.
 Papers referenced in this file are:
 {
 M. Perc, ‘Spatial coherence resonance in excitable media’,
@@ -18,17 +18,16 @@ P. Jung, J. Wang, R. Wackerbauer, and K. Showalter,
     Phys. Rev. E, vol. 61, no. 2, pp. 2095–2098, Feb. 2000,
     doi: 10.1103/PhysRevE.61.2095.
 }
-
-
 """
 
 import numpy as np
 import scipy.fft
-import scipy.interpolate
+from scipy.interpolate import interpn
+from scipy.signal import find_peaks
 
 import skimage.measure
 
-from src.helper.datatypes import DiscretisationParameters
+from src.helper.datatypes import DiscretisationParameters, EllipseParameters
 
 
 def calculate_structure_function(
@@ -109,22 +108,202 @@ def calculate_circular_line_integral(
         np.arange(0, grid_size[0], grid_step_size[1]),
     )
 
+    angle_array = np.linspace(0, 2 * np.pi, number_of_steps)
     integrand = 0
-    for i in range(number_of_steps):
+    for angle in angle_array:
         # Find the (x*, y*) coordinates of the point in the current integration step. Note that this
         # is from the centre of the grid
-        x_star = (grid_size[0] / 2) + radius * np.cos(i * angular_step_size)
-        y_star = (grid_size[1] / 2) + radius * np.sin(i * angular_step_size)
+        x_star = (grid_size[0] / 2) + radius * np.cos(angle)
+        y_star = (grid_size[1] / 2) + radius * np.sin(angle)
 
         # Interpolate the value at this coordinate from the given grid of values
         interpolated_value = scipy.interpolate.interpn(
             points, values, [x_star, y_star]
         )[0]
+
+        # Get the integrand and add it to the running total
         integrand += interpolated_value * (radius * angular_step_size)
 
     return integrand
 
-# TODO: make a function to find the peak for the p_k
+
+def find_peaks_in_almost_monotonically_decreasing(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    prominence: float = 0.1,
+    start_index_peaks: int = 1,
+) -> np.ndarray:
+    """
+    This is a function to find peaks in a line that is almost monotonically decreasing. Because the
+    peaks are not very high (or sometimes not even a proper local maxima), a different approach
+    is required here by taking the derivative of the line and then finding the peaks of
+    the derivative.
+    Args:
+        x_values (np.ndarray): 1D array of the x values of the function
+        y_values (np.ndarray): 1D array of the y values of the function
+        prominence (float, optional): Prominence for finding the peaks of the derivative.
+            Defaults to 0.1.
+        start_index_peaks (int, optional): The starting index for finding peaks, as the first
+            derivative might not be representative. Defaults to 1.
+
+    Returns:
+        np.ndarray : an array of the index of the peaks in the given y_values array
+    """
+    # Check that the x_values and y_values have the same shape
+    assert len(x_values) == len(y_values)
+
+    # Find delta_x, and then check that they are all approximately the same
+    delta_x_array = x_values[1:] - x_values[:-1]
+    assert np.all(
+        np.logical_and(
+            delta_x_array < 1.1 * delta_x_array[0],
+            delta_x_array > 0.9 * delta_x_array[0],
+        )
+    )
+    # Use central difference to find the derivative of y
+    y_prime = (y_values[2:] - y_values[:-2]) / delta_x_array[0]
+
+    # Find the peaks in y derivative
+    peaks_in_y_prime = scipy.signal.find_peaks(
+        y_prime, prominence=prominence * np.max(np.abs(y_prime[start_index_peaks:]))
+    )[0]
+
+    # Add 2 to the index because of the calculation for the derivative of y-values
+    return peaks_in_y_prime + 2
+
+
+def calculate_elliptic_line_integral(
+    values: np.ndarray,
+    grid_size: list[int],
+    grid_step_size: list[float],
+    ellipse_parameters: EllipseParameters,
+    scale_factor: float,
+    angular_step_size: float,
+) -> float:
+    """
+    Numerically calculate a elliptical line integral over a grid of
+    the values given.
+
+    Args:
+        values (np.ndarray): the values to integrate over. Should be a 2D array
+        grid_size (tuple[int, int]): the grid size over which the values are distributed
+        grid_step_size (tuple[float, float]): the step size of the grid over which the values are
+            distributed
+        ellipse_parameters (EllipseParameters): the parameters given for the ellipse. The instance
+            will be normalised in the process
+        scale_factor (float): the scaling of the semi-major and semi-minor axes
+        angular_step_size (float): the step size of the integration
+
+    Returns:
+        float: the value of the integral
+    """
+    # Calculate the number of steps to cover over the provided angular step size
+    number_of_steps = int(2 * np.pi / angular_step_size)
+
+    # Generate the grid given by the specification
+    points = (
+        np.arange(0, grid_size[0], grid_step_size[0]),
+        np.arange(0, grid_size[0], grid_step_size[1]),
+    )
+
+    # Normalise the ellipse parameters if not yet normalised
+    if not ellipse_parameters.normalised:
+        ellipse_parameters.normalise()
+
+    t_array = np.linspace(0, 2 * np.pi, number_of_steps)
+    integrand = 0
+    for t in t_array:
+        # Find the (x*, y*) coordinates of the point in the current integration step. Note that this
+        # is from the centre of the grid
+        x_star = (
+            ellipse_parameters.x0
+            + (
+                scale_factor
+                * ellipse_parameters.major_axis
+                * np.cos(t)
+                * np.cos(ellipse_parameters.angle_of_rotation)
+            )
+            - (
+                scale_factor
+                * ellipse_parameters.minor_axis
+                * np.sin(t)
+                * np.sin(ellipse_parameters.angle_of_rotation)
+            )
+        )
+        y_star = (
+            ellipse_parameters.y0
+            + (
+                scale_factor
+                * ellipse_parameters.major_axis
+                * np.cos(t)
+                * np.sin(ellipse_parameters.angle_of_rotation)
+            )
+            + (
+                scale_factor
+                * ellipse_parameters.minor_axis
+                * np.sin(t)
+                * np.cos(ellipse_parameters.angle_of_rotation)
+            )
+        )
+
+        # Calculate the derivative of x and y to calculate the integrand
+        x_prime = (
+            scale_factor
+            * ellipse_parameters.major_axis
+            * -np.sin(t)
+            * np.cos(ellipse_parameters.angle_of_rotation)
+        ) - (
+            scale_factor
+            * ellipse_parameters.minor_axis
+            * np.cos(t)
+            * np.sin(ellipse_parameters.angle_of_rotation)
+        )
+        y_prime = (
+            scale_factor
+            * ellipse_parameters.major_axis
+            * -np.sin(t)
+            * np.sin(ellipse_parameters.angle_of_rotation)
+        ) + (
+            scale_factor
+            * ellipse_parameters.minor_axis
+            * np.cos(t)
+            * np.cos(ellipse_parameters.angle_of_rotation)
+        )
+
+        # Interpolate the value at this coordinate from the given grid of values
+        interpolated_value = scipy.interpolate.interpn(
+            points, values, [x_star, y_star]
+        )[0]
+
+        # Calculate the integrand and add it to the running total
+        integrand += (
+            interpolated_value * np.sqrt(x_prime**2 + y_prime**2) * angular_step_size
+        )
+
+    return integrand
+
+
+def calculate_ellipse_perimeter(
+    ellipse_parameter: EllipseParameters, scale_factor: float = 1.0
+) -> float:
+    """Ramanujan's first approximation for a perimeter of an ellipse.
+
+    Args:
+        ellipse_parameter (EllipseParameters): the elliptical parameters
+        scale_factor (float, optional): scale factor for the semi-major and semi-minor axes. Defaults to 1.0.
+
+    Returns:
+        float: the (approximate) perimeter of the ellipse.
+    """
+    return np.pi * (
+        3 * scale_factor * (ellipse_parameter.major_axis + ellipse_parameter.minor_axis)
+        - np.sqrt(
+            scale_factor**2
+            * (3 * ellipse_parameter.major_axis + ellipse_parameter.minor_axis)
+            * (ellipse_parameter.major_axis + 3 * ellipse_parameter.minor_axis)
+        )
+    )
+
 
 def calculate_linear_cross_correlation(
     values: np.ndarray, discretisation_parameters: DiscretisationParameters
@@ -142,8 +321,8 @@ def calculate_linear_cross_correlation(
         float: a value for the linear cross correlation
     """
 
-    cross_correlation = np.zeros(values.shape[2] - 1)
-    for t in range(values.shape[2]):
+    cross_correlation = np.zeros(values.shape[2])
+    for t in range(values.shape[2] - 1):
         # Calculate the mean value of a single timepoint
         mean_value = np.mean(values[:, :, t])
 
@@ -164,7 +343,9 @@ def calculate_linear_cross_correlation(
     return float(np.mean(cross_correlation))
 
 
-def calculate_covariance(two_dimensional_values: np.ndarray, mean_value: float) -> float:
+def calculate_covariance(
+    two_dimensional_values: np.ndarray, mean_value: float
+) -> float:
     """Calculate covariance according to the (Busch and Kaiser, 2003)
 
     Args:
@@ -178,7 +359,7 @@ def calculate_covariance(two_dimensional_values: np.ndarray, mean_value: float) 
     assert two_dimensional_values.shape[0] == two_dimensional_values.shape[1]
     grid_size = two_dimensional_values.shape[0]
 
-    # Start with calculating the centre. In this, there's 4 cells for the von neumann neighbourhood
+    # Start with calculating the centre. In this, there's 4 cells for the von neumann neighbourhood
     von_neuman_neighbourhood_centre = np.empty((4, grid_size - 2, grid_size - 2))
     von_neuman_neighbourhood_centre[0, :, :] = two_dimensional_values[:-2, 1:-1]
     von_neuman_neighbourhood_centre[1, :, :] = two_dimensional_values[2:, 1:-1]
@@ -193,7 +374,7 @@ def calculate_covariance(two_dimensional_values: np.ndarray, mean_value: float) 
         / 4
     )
 
-    # Calculate for the edges (x =0, grid size; y = 0, grid size). For this the cell in the von 
+    # Calculate for the edges (x =0, grid size; y = 0, grid size). For this the cell in the von
     # neumann neighbourhood is 3
     von_neuman_neighbourhood_edge = np.zeros((3, grid_size - 2, 4))
     values_edge = np.zeros((grid_size - 2, 4))
@@ -229,7 +410,6 @@ def calculate_covariance(two_dimensional_values: np.ndarray, mean_value: float) 
         )
         / 3
     )
-
 
     # For the 4 corners of the grid
     von_neuman_neighbourhood_0 = np.array(
@@ -286,7 +466,6 @@ def calculate_covariance(two_dimensional_values: np.ndarray, mean_value: float) 
     ) / (two_dimensional_values.shape[0] * two_dimensional_values.shape[1])
 
 
-
 def calculate_spatiotemporal_entropy(
     three_dimensional: np.ndarray, threshold_value: float
 ) -> float:
@@ -300,11 +479,11 @@ def calculate_spatiotemporal_entropy(
     Returns:
         float: the spatiotemporal entropy
     """
-    
-    # Make a binary image of the 3D array, and then find the clusters that are connected to each
-    # other across time and space
+
+    # Make a binary image of the 3D array, and then find the clusters that are connected to each
+    # other across time and space
     binary = np.where(three_dimensional > threshold_value, 1, 0)
-    labels, nums = skimage.measure.label(binary, connectivity=3, return_num=True) # type: ignore
+    labels, nums = skimage.measure.label(binary, connectivity=3, return_num=True)  # type: ignore
 
     # Find the size of each of the clusters
     size_of_clusters = np.empty(nums - 1)
@@ -312,7 +491,7 @@ def calculate_spatiotemporal_entropy(
         size_of_cluster = np.sum(np.where(labels == num))
         size_of_clusters[num - 1] = size_of_cluster
 
-    # Make a histogram of the size of the clusters (because none of the clusters will have the same
+    # Make a histogram of the size of the clusters (because none of the clusters will have the same
     # size), and then use the centre of the bin to be the size of the cluester
     hist, bin_edges = np.histogram(size_of_clusters, bins=20)
     sizes = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -323,5 +502,3 @@ def calculate_spatiotemporal_entropy(
     spatiotemporal_entropy = -1 * np.sum(non_zero_vs * np.log(non_zero_vs))
 
     return spatiotemporal_entropy
-
-

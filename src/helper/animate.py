@@ -6,13 +6,13 @@ import pathlib
 
 
 def animate_plot(
-    values: np.ndarray, timepoints: np.ndarray, cmap: str = "jet"
+    values: np.ndarray, number_of_timesteps: int, cmap: str = "jet"
 ) -> animation.ArtistAnimation:
     """Animate the 3D array into a 2D images in time.
 
     Args:
         values (np.ndarray): the 3D values to animate
-        timepoints (np.ndarray): timepoints to animate it in
+        number_of_timesteps (int): how many timepoints there is
         cmap (str, optional): The colour map for the image. Defaults to "jet".
 
     Returns:
@@ -20,7 +20,7 @@ def animate_plot(
     """
     fig, ax = plt.subplots()
     ims = []
-    for t in range(len(timepoints) - 1):
+    for t in range(number_of_timesteps - 1):
         im = ax.imshow(
             values[:, :, t],
             vmin=np.min(values),

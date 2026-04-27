@@ -8,8 +8,7 @@
         "a" : 0.75,
         "b": 0.01,
         "epsilon": 0.05
-    }, 
-    "diffusion_constant": 0.7,
-    "simulation_time": 15,
-    "noise_intensity": 0.2
+    },
+    "simulation_time": 10,
+    "ensemble_number": 1
 } 

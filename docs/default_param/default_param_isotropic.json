@@ -1,0 +1,4 @@
+{
+    "diffusion_type" : "isotropic",
+    "isotropic_diffusion_constant" : 0.7
+}

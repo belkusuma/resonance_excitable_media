@@ -1,0 +1,19 @@
+{
+    "type" : "object",
+    "properties": 
+    {
+        "noise_type" : {"type" : "string"},
+        "noise_intensity" : {"type" : "number"},
+        "noise_correlation" : 
+        {
+            "type" : "object",
+            "properties": 
+            {
+                "spatial" : {"type" : "number"},
+                "temporal" : {"type" : "number"}
+            },
+            "required": ["spatial", "temporal"]
+        }
+    },
+    "required": ["noise_type", "noise_intensity"]
+}
