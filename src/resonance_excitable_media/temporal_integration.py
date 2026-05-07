@@ -29,12 +29,17 @@ def fitzhugh_nagumo_equation(
         fitzhugh_nagumo_constants (FitzHughNagumoConstants): the constants for FHN
         membrane_potential (np.ndarray): membrane potential (u) at each timestep
         potassium_conductance (np.ndarray): potassium conductance (v) at each timestep
+    
+    Raises:
+        ValueError: Infinite value in FitzHugh Nagumo equations
 
     Returns:
         f_uv (np.ndarray): modified FHN term for membrane potential time derivative
         g_uv (np.ndarray): modified FHN term for potassium conductance time derivative
     """
-    # TODO: CHECK ARRAY SIZES
+    # Check array sizes
+    assert np.all(membrane_potential.shape == potassium_conductance.shape)
+
     # Calculate the FitzHugh-Nagumo equations for all elements in the grid, except for the
     # boundaries
     # Modify for well-behaved behaviour according to Perc, 2005
@@ -50,6 +55,10 @@ def fitzhugh_nagumo_equation(
             )
         )
     )
+    # If there is infinite value, abort
+    if not np.all(np.isfinite(f)):
+        raise ValueError("Infinite value in FitzHugh-Nagumo equation!")
+
     f_uv = np.where(membrane_potential[1:-1, 1:-1] <= 1, f, -np.abs(f))
 
     g = membrane_potential[1:-1, 1:-1] - potassium_conductance[1:-1, 1:-1]
@@ -85,7 +94,10 @@ def temporal_integration(
         noise (np.ndarray): noise at n time-step. Should have (size-2) than the membrane potential 
             size
     """
-    # TODO: CHECK ARRAY SIZES
+    # Check array sizes
+    assert np.all(new_membrane_potential.shape == old_membrane_potential.shape)
+    assert np.all(new_potassium_conductance.shape == old_potassium_conductance.shape)
+    assert np.all(new_membrane_potential.shape == new_potassium_conductance.shape)
 
     new_membrane_potential[1:-1, 1:-1] = (
         f_uv + diffusion_term + noise
@@ -104,7 +116,9 @@ def neumann_boundary_condition(
         membrane_potential (np.ndarray): membrane potential at timestep n+1
         potassium_conductance (np.ndarray): potassium conductance at timestep n+1
     """
-    # TODO: CHECK ARRAY SIZES
+    # Check array sizes
+    assert np.all(membrane_potential.shape == potassium_conductance.shape)
+
     membrane_potential[0, :] = membrane_potential[1, :]
     potassium_conductance[0, :] = potassium_conductance[1, :]
 
@@ -118,15 +132,15 @@ def neumann_boundary_condition(
     potassium_conductance[:, -1] = potassium_conductance[:, -2]
 
 
-def anisotropic_diffusion(
+def diffusion_simulation(
     fitzhugh_nagumo_constants: FitzHughNagumoConstants,
     discretisation_parameters: DiscretisationParameters,
     timepoints: np.ndarray,
     excitable_media: ExcitableMedia,
     noise: np.ndarray,
-    diffusion_tensor: DiffusionTensor,
+    diffusion_constant: DiffusionTensor | float,
 ) -> ExcitableMedia:
-    """Run the simulation with anisotropic diffusion of the media.
+    """Run the diffusion simulation of the media.
 
     Args:
         fitzhugh_nagumo_constants (FitzHughNagumoConstants): the constants for FHN
@@ -135,23 +149,33 @@ def anisotropic_diffusion(
         timepoints (np.ndarray): timepoints for the simulation
         excitable_media (ExcitableMedia): container for the values of the media
         noise (np.ndarray): noise that is generated
-        diffusion_tensor (DiffusionTensor): diffusion tensor for each pixel of the simulation domain
+        diffusion_constant (DiffusionTensor | float): if anisotropic diffusion, use DiffusionTensor.
+            if isotropic, use a single value for the diffusion constant
+
+    Raises:
+        ValueError: Infinite value in FitzHugh Nagumo equations
 
     Returns:
         ExcitableMedia: values of the media after simulation
     """
-    # TODO: CHECK SIZES ON THE ARRAYS
+    # Check sizes
+    assert noise.shape[0] == (excitable_media.grid_size[0]-2)
+    assert noise.shape[1] == (excitable_media.grid_size[1] - 2)
+    assert noise.shape[2] == len(timepoints)
+    if isinstance(diffusion_constant, DiffusionTensor):
+        assert np.all(diffusion_constant.size == excitable_media.grid_size)
 
     for t in range(len(timepoints) - 1):
         # Calculate the FitzHugh-Nagumo equations for all elements in the grid, except for the
         # boundaries
-        # Modify for well-behaved behaviour according to Perc, 2005
-
-        f_uv, g_uv = fitzhugh_nagumo_equation(
-            fitzhugh_nagumo_constants,
-            excitable_media.membrane_potential[:, :, t],
-            excitable_media.potassium_conductance[:, :, t],
-        )
+        try:
+            f_uv, g_uv = fitzhugh_nagumo_equation(
+                fitzhugh_nagumo_constants,
+                excitable_media.membrane_potential[:, :, t],
+                excitable_media.potassium_conductance[:, :, t],
+            )
+        except ValueError:
+            raise
 
         # Calculate the second-order spatial differentiation with discretisation
         u_xx = (
@@ -176,11 +200,14 @@ def anisotropic_diffusion(
         )
 
         # Calculate the diffusion term
-        diffusion_term = (
-            diffusion_tensor.d_xx[1:-1, 1:-1] * u_xx
-            + diffusion_tensor.d_yy[1:-1, 1:-1] * u_yy
-            + 2 * diffusion_tensor.d_xy[1:-1, 1:-1] * u_xy
-        )
+        if isinstance(diffusion_constant, DiffusionTensor):
+            diffusion_term = (
+                diffusion_constant.d_xx[1:-1, 1:-1] * u_xx
+                + diffusion_constant.d_yy[1:-1, 1:-1] * u_yy
+                + 2 * diffusion_constant.d_xy[1:-1, 1:-1] * u_xy
+            )
+        else:
+            diffusion_term = diffusion_constant * (u_xx + u_yy)
 
         # Do temporal integration to get to the next time-step (for the elements that are not on
         # the boundary)
@@ -202,79 +229,4 @@ def anisotropic_diffusion(
             excitable_media.membrane_potential[:, :, t + 1],
             excitable_media.potassium_conductance[:, :, t + 1],
         )
-
-    return excitable_media
-
-
-def isotropic_diffusion(
-    fitzhugh_nagumo_constants: FitzHughNagumoConstants,
-    discretisation_parameters: DiscretisationParameters,
-    timepoints: np.ndarray,
-    excitable_media: ExcitableMedia,
-    noise: np.ndarray,
-    diffusion_constant: float,
-) -> ExcitableMedia:
-    """Run the simulation with isotropic diffusion of the media.
-
-    Args:
-        fitzhugh_nagumo_constants (FitzHughNagumoConstants): the constants for FHN
-        discretisation_parameters (DiscretisationParameters): parameters for discretisation of the 
-            simulation domain
-        timepoints (np.ndarray): timepoints for the simulation
-        excitable_media (ExcitableMedia): container for the values of the media
-        noise (np.ndarray): noise that is generated
-        diffusion_constant (float): diffusion constant that is the same for each pixel in the media
-
-    Returns:
-        ExcitableMedia: values of the media after simulation
-    """
-    # TODO: CHECK SIZES ON THE ARRAYS
-
-    for t in range(len(timepoints) - 1):
-        # Calculate the FitzHugh-Nagumo equations for all elements in the grid, except for the
-        # boundaries
-        # Modify for well-behaved behaviour according to Perc, 2005
-
-        f_uv, g_uv = fitzhugh_nagumo_equation(
-            fitzhugh_nagumo_constants,
-            excitable_media.membrane_potential[:, :, t],
-            excitable_media.potassium_conductance[:, :, t],
-        )
-
-        # Calculate the second-order spatial differentiation with discretisation
-        u_xx = (
-            excitable_media.membrane_potential[2:, 1:-1, t]
-            + excitable_media.membrane_potential[:-2, 1:-1, t]
-            - 2 * excitable_media.membrane_potential[1:-1, 1:-1, t]
-        ) / (discretisation_parameters.spatial_step_size[0] ** 2)
-        u_yy = (
-            excitable_media.membrane_potential[1:-1, 2:, t]
-            + excitable_media.membrane_potential[1:-1, :-2, t]
-            - 2 * excitable_media.membrane_potential[1:-1, 1:-1, t]
-        ) / (discretisation_parameters.spatial_step_size[1] ** 2)
-
-        # Calculate the diffusion term
-        diffusion_term = diffusion_constant * (u_xx + u_yy)
-
-        # Do temporal integration to get to the next time-step (for the elements that are not on
-        # the boundary)
-        temporal_integration(
-            excitable_media.membrane_potential[:, :, t + 1],
-            excitable_media.membrane_potential[:, :, t],
-            excitable_media.potassium_conductance[:, :, t + 1],
-            excitable_media.potassium_conductance[:, :, t],
-            discretisation_parameters.temporal_step_size,
-            f_uv,
-            g_uv,
-            diffusion_term,
-            noise[:, :, t],
-        )
-
-        # Use Neumann boundary conditions (spatial differentiation = 0) for the elements on the
-        # boundary
-        neumann_boundary_condition(
-            excitable_media.membrane_potential[:, :, t + 1],
-            excitable_media.potassium_conductance[:, :, t + 1],
-        )
-
     return excitable_media

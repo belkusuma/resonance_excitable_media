@@ -1,0 +1,74 @@
+{
+    "type" : "object",
+    "properties": 
+    {
+        "diffusion_type_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "string"},
+            "minItems" : 1
+
+        },
+        "diffusion_xx_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "number"},
+            "minItems": 1
+        }, 
+        "diffusion_xy_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "number"},
+            "minItems": 1
+        }, 
+        "diffusion_yy_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "number"},
+            "minItems": 1
+        }, 
+        "noise_type_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "string"},
+            "minItems" : 1
+
+        },
+        "noise_intensity_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "number"},
+            "minItems": 1
+        },
+        "temporal_correlation_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "number"},
+            "minItems": 1
+        },
+        "spatial_correlation_array": 
+        {
+            "type" : "array",
+            "items": {"type" : "number"},
+            "minItems": 1
+        },
+        "cross_correlation_direction":
+        {
+            "type" : "array",
+            "items": 
+            {
+                "type" : "array",
+                "items": {"type" : "number", "minItems": 2, "maxItems": 2}
+            }
+        }
+    },
+    "required": [
+        "diffusion_type_array", 
+        "diffusion_xx_array",
+        "diffusion_xy_array",
+        "diffusion_yy_array", 
+        "noise_type_array", 
+        "noise_intensity_array", 
+        "temporal_correlation_array", 
+        "spatial_correlation_array"]
+}

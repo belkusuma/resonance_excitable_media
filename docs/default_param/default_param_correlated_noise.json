@@ -1,0 +1,9 @@
+{
+    "noise_type": "correlated",
+    "noise_intensity": 0.32,
+    "noise_correlation":
+    {
+        "spatial": 5,
+        "temporal": 0.1
+    }
+}

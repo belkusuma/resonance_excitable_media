@@ -1,0 +1,10 @@
+{
+    "diffusion_type" : "anisotropic",
+    "isotropic_diffusion_constant" : 0.0,
+    "anisotropic_diffusion_tensor":{
+        "diffusion_values": [
+            [1.25, 0.0, 0.25]
+        ],
+        "mask_paths": ["default_anisotropic_tract"]
+    }
+}

@@ -1,19 +1,45 @@
 """File for all the datatypes."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 import numpy as np
 class NoiseType(Enum):
     """Noise type for generation."""
     WHITE = 0
     CORRELATED = 1
+    NOT_IMPLEMENTED = 2
+
+    @staticmethod
+    def from_string(label):
+        if label == "WHITE":
+            return NoiseType.WHITE
+        elif label == "CORRELATED":
+            return NoiseType.CORRELATED
+        else:
+            return NoiseType.NOT_IMPLEMENTED
 
 class DiffusionType(Enum):
     """Diffusion type."""
     ISOTROPIC = 0
     ANISOTROPIC = 1
+    NOT_IMPLEMENTED = 2
 
+    @staticmethod
+    def from_string(label):
+        if label == "ISOTROPIC":
+            return DiffusionType.ISOTROPIC
+        elif label == "ANISOTROPIC":
+            return DiffusionType.ANISOTROPIC
+        else:
+            return DiffusionType.NOT_IMPLEMENTED
+
+class SimulationType(Enum):
+    NOISE_ONLY = 0
+    FULL_SIMULATION = 1
+
+class CrossCorrelationType(Enum):
+    MEAN = 0
+    DIRECTED = 1
 @dataclass
 class FitzHughNagumoConstants:
     """Constants for FitzHugh-Nagumo equations."""
@@ -32,8 +58,14 @@ class DiscretisationParameters:
 @dataclass
 class ExcitableMedia:
     """Description of an excitable media. Only FHN for now."""
-    membrane_potential: np.ndarray
-    potassium_conductance: np.ndarray
+    grid_size : tuple[int, int]
+    temporal_size: int
+    membrane_potential: np.ndarray = field(init=False)
+    potassium_conductance: np.ndarray = field(init=False)
+
+    def __post_init__(self):
+        self.membrane_potential = np.zeros((self.grid_size[0], self.grid_size[1], self.temporal_size))
+        self.potassium_conductance = np.zeros((self.grid_size[0], self.grid_size[1], self.temporal_size))
 
 @dataclass
 class DiffusionTensor:
@@ -41,14 +73,58 @@ class DiffusionTensor:
     d_xx: np.ndarray
     d_xy: np.ndarray
     d_yy: np.ndarray
+    size :tuple[int, int] = field(init=False)
+
+    def __post_init__(self):
+        if not (np.all(self.d_xx.shape == self.d_xy.shape) and (np.all(self.d_xy.shape == self.d_yy.shape)) and (np.all(self.d_xx.shape ==self.d_yy.shape))):
+            raise AttributeError
+        
+        self.size = self.d_xx.shape
 
 @dataclass
 class SimulationParameters:
     """Parameters for simulation that is then read from a json file."""
     fitzhugh_nagumo_constants: FitzHughNagumoConstants
     discretisation_parameters : DiscretisationParameters
+    diffusion_type : DiffusionType
     diffusion_constant: float | DiffusionTensor
     simulation_time: float
+    noise_type : NoiseType
     noise_intensity: float
-    spatial_noise_correlation: Optional[float] = None
-    temporal_noise_correlation: Optional[float] = None
+    spatial_noise_correlation: float
+    temporal_noise_correlation: float
+
+    def __post_init__(self):
+        if self.diffusion_type == DiffusionType.ISOTROPIC:
+            diffusion_valid = isinstance(self.diffusion_constant, float)
+        elif self.diffusion_type == DiffusionType.ANISOTROPIC:
+            diffusion_valid = isinstance(self.diffusion_constant, DiffusionTensor)
+        else:
+            diffusion_valid = False
+        
+        if self.noise_type == NoiseType.WHITE:
+            noise_valid = (np.isclose(self.spatial_noise_correlation, 0 ) and np.isclose(self.temporal_noise_correlation, 0))
+        elif self.noise_type == NoiseType.CORRELATED:
+            noise_valid = not (np.isclose(self.spatial_noise_correlation, 0 ) and np.isclose(self.temporal_noise_correlation, 0))
+        else:
+            noise_valid = False
+        
+        if not (diffusion_valid and noise_valid):
+            raise AttributeError
+
+
+@dataclass
+class ParametersBatch:
+    fitzhugh_nagumo_constants: FitzHughNagumoConstants
+    discretisation_parameters : DiscretisationParameters
+    simulation_time: float
+    ensemble_number: int
+    diffusion_type_array : list[str]
+    diffusion_xx_array: list[float]
+    diffusion_xy_array: list[float]
+    diffusion_yy_array: list[float]
+    noise_type_array : list[str]
+    noise_intensity_array: list[float]
+    spatial_correlation_array: list[float]
+    temporal_correlation_array: list[float]
+    cross_correlation_direction : np.ndarray | None

@@ -1,0 +1,47 @@
+{
+    "type" : "object",
+    "properties":
+    {
+        "discretisation":
+        {
+            "type" : "object",
+            "properties": 
+            {
+                "grid_size" : 
+                {
+                    "type" : "array",
+                    "items": {
+                        "type": "number"
+                    },
+                "minItems": 2,
+                "maxItems": 2    
+                },
+                "spatial_step_size":
+                {
+                    "type" : "array",
+                    "items": {
+                        "type": "number"
+                    },
+                "minItems": 2,
+                "maxItems": 2    
+                },
+                "temporal_step_size" : {"type" : "number"}
+            },
+            "required": ["grid_size", "spatial_step_size", "temporal_step_size"]
+        },
+        "fitzhugh_nagumo_constants":
+        {
+            "type": "object",
+            "properties":
+            {
+                "a" : {"type": "number"},
+                "b" : {"type": "number"},
+                "epsilon": {"type":"number"}
+            },
+            "required": ["a", "b", "epsilon"]
+        },
+        "simulation_time": {"type": "number"},
+        "ensemble_number": {"type": "number"}
+    },
+    "required": ["discretisation", "fitzhugh_nagumo_constants", "simulation_time"]
+}

@@ -19,4 +19,5 @@ def validate_json_schema(json_path: pathlib.Path, schema_path : pathlib.Path):
             try:
                 validate(instance=json_contents, schema=schema_contents)
             except ValidationError as e:
-                print("JSON validation failed!")
+                print(f"JSON validation for {json_path} failed!")
+                raise
