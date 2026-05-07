@@ -1,3 +1,5 @@
+"""Functions to read the parameters JSON files accordingly."""
+
 import numpy as np
 import pathlib
 import json
@@ -8,6 +10,7 @@ from src.helper.datatypes import (
     FitzHughNagumoConstants,
     DiscretisationParameters,
     ParametersBatch,
+    DiffusionTensor,
 )
 from src.helper.validate_param import validate_json_schema
 from src.helper.diffusion_tensor_mask import (
@@ -18,6 +21,8 @@ from jsonschema.exceptions import ValidationError
 
 
 class ReadParameterError(Exception):
+    """Error specifically when failed to read parameters."""
+
     def __init__(self):
         super().__init__()
 
@@ -33,6 +38,9 @@ def read_parameters_single(
         path (pathlib.Path): path to the parameters json file
         noise_type (NoiseType): type of supported noise generation
         diffusion_type (DiffusionType): type of supported diffusion
+
+    Raises:
+        ReadParameterError: when parameters are not read properly
 
     Returns:
         SimulationParameters: a dataclass of all the parameters needed to run the simulation
@@ -90,7 +98,21 @@ def read_parameters_single(
 def read_parameters_batch(
     simulation_constant_param_path: pathlib.Path,
     noise_and_diffusion_batch_path: pathlib.Path,
-):
+) -> ParametersBatch:
+    """Reading the parameters for running batch simulations (i.e. for metric calculations) from a
+    given JSON file.
+
+    Args:
+        simulation_constant_param_path (pathlib.Path): path to the simulation constant json file
+        noise_and_diffusion_batch_path (pathlib.Path): path to the combinations of noise and
+            diffusion constants
+
+    Raises:
+        ReadParameterError: when parameters are not read properly
+
+    Returns:
+        ParametersBatch: a dataclass of the batch parameters
+    """
     # Find the schema for the particular noise and diffusion type, and then validate
     schema_parent_path = (
         pathlib.Path(__file__).parent.parent.parent.resolve() / "docs" / "param_schema"
@@ -99,48 +121,66 @@ def read_parameters_batch(
     simulation_constant_schema_path = (
         schema_parent_path / "simulation_constant.schema.json"
     )
-    batch_schema_path = (schema_parent_path / "batch_param.schema.json")
+    batch_schema_path = schema_parent_path / "batch_param.schema.json"
+
     try:
         validate_json_schema(
             simulation_constant_param_path, simulation_constant_schema_path
         )
-        validate_json_schema(
-            noise_and_diffusion_batch_path, 
-            batch_schema_path
-        )
-        fitzhugh_nagumo_constants, discretisation_parameters, simulation_time, ensemble_number = (
-            read_simulation_constant_parameters(simulation_constant_param_path)
-        )
+        validate_json_schema(noise_and_diffusion_batch_path, batch_schema_path)
+        (
+            fitzhugh_nagumo_constants,
+            discretisation_parameters,
+            simulation_time,
+            ensemble_number,
+        ) = read_simulation_constant_parameters(simulation_constant_param_path)
 
         (
-        diffusion_type_array,
-        diffusion_constant_array,
-        noise_type_array,
-        noise_intensity_array,
-        spatial_correlation_array,
-        temporal_correlation_array,
-        ) = read_noise_and_diffusion_combinations( noise_and_diffusion_batch_path)
+            diffusion_type_array,
+            diffusion_xx_array,
+            diffusion_xy_array,
+            diffusion_yy_array,
+            noise_type_array,
+            noise_intensity_array,
+            spatial_correlation_array,
+            temporal_correlation_array,
+            cross_correlation_direction
+        ) = read_noise_and_diffusion_combinations(noise_and_diffusion_batch_path)
 
         return ParametersBatch(
             fitzhugh_nagumo_constants=fitzhugh_nagumo_constants,
-            discretisation_parameters = discretisation_parameters,
-            simulation_time = simulation_time,
-            ensemble_number = ensemble_number,
-            diffusion_type_array = diffusion_type_array,
-            diffusion_constant_array = diffusion_constant_array,
-            noise_type_array = noise_type_array,
-            noise_intensity_array = noise_intensity_array,
-            spatial_correlation_array = spatial_correlation_array,
-            temporal_correlation_array = temporal_correlation_array
+            discretisation_parameters=discretisation_parameters,
+            simulation_time=simulation_time,
+            ensemble_number=ensemble_number,
+            diffusion_type_array=diffusion_type_array,
+            diffusion_xx_array=diffusion_xx_array,
+            diffusion_xy_array=diffusion_xy_array,
+            diffusion_yy_array=diffusion_yy_array,
+            noise_type_array=noise_type_array,
+            noise_intensity_array=noise_intensity_array,
+            spatial_correlation_array=spatial_correlation_array,
+            temporal_correlation_array=temporal_correlation_array,
+            cross_correlation_direction=cross_correlation_direction
         )
 
-    except ValidationError:
+    except (ValidationError, AssertionError):
         raise ReadParameterError()
 
 
 def read_simulation_constant_parameters(
     simulation_constant_param_path: pathlib.Path,
 ) -> tuple[FitzHughNagumoConstants, DiscretisationParameters, float, int]:
+    """Reads the simulation constant parameter file. Assumes file is valid.
+
+    Args:
+        simulation_constant_param_path (pathlib.Path): path to the simulation constant file
+
+    Returns:
+        FitzHughNagumoConstants: the constants for the FHN equations
+        DiscretisationParameters: the discretisation parameters
+        float: how long the simulation should run for
+        int: number of ensembles to run
+    """
     with open(simulation_constant_param_path) as simulation_constant_file:
         simulation_constant_parameters = json.load(simulation_constant_file)
 
@@ -168,13 +208,32 @@ def read_simulation_constant_parameters(
         else:
             ensemble_number = 1
 
-    return fitzhugh_nagumo_constants, discretisation_parameters, simulation_time, ensemble_number
+    return (
+        fitzhugh_nagumo_constants,
+        discretisation_parameters,
+        simulation_time,
+        ensemble_number,
+    )
 
 
 def read_diffusion_constant_parameters(
     diffusion_constant_param_path: pathlib.Path,
     discretisation_parameters: DiscretisationParameters,
-):
+) -> tuple[DiffusionType, float | DiffusionTensor]:
+    """Reads the diffusion constant parameters. Assumes file is valid.
+
+    Args:
+        diffusion_constant_param_path (pathlib.Path): path to the diffusion constant file
+        discretisation_parameters (DiscretisationParameters): the discretisation parameters
+
+    Raises:
+        KeyError: If diffusion is set to be anisotropic but no anisotropic diffusion constant
+        NotImplementedError: If diffusion ise set to be other than isotropic or anisotropic
+
+    Returns:
+        diffusion_type: the type of diffusion
+        diffusion_constant: either float or a tensor
+    """
     with open(diffusion_constant_param_path) as diffusion_constant_file:
         diffusion_constant_parameters = json.load(diffusion_constant_file)
         diffusion_type = DiffusionType.from_string(
@@ -256,7 +315,24 @@ def read_diffusion_constant_parameters(
     return diffusion_type, diffusion_constant
 
 
-def read_noise_generation_parameters(noise_generation_param_path: pathlib.Path):
+def read_noise_generation_parameters(
+    noise_generation_param_path: pathlib.Path,
+) -> tuple[NoiseType, float, float, float]:
+    """Reads the noise generation parameter file. Assumes file is valid.
+
+    Args:
+        noise_generation_param_path (pathlib.Path): path to the noise generation file
+
+    Raises:
+        KeyError: If noise is set to be correlated but no correlation is found.
+        NotImplementedError: If noise not white or correlated
+
+    Returns:
+        noise_type: the type of noise
+        noise_intensity: intensity of the noise
+        spatial_noise_correlation: the spatial correlation value
+        temporal_noise_correlation: the temporal correlation value
+    """
     with open(noise_generation_param_path) as noise_generation_file:
         noise_generation_parameters = json.load(noise_generation_file)
         noise_type = NoiseType.from_string(
@@ -290,23 +366,67 @@ def read_noise_generation_parameters(noise_generation_param_path: pathlib.Path):
     )
 
 
-def read_noise_and_diffusion_combinations(noise_and_diffusion_batch_path: pathlib.Path):
+def read_noise_and_diffusion_combinations(
+    noise_and_diffusion_batch_path: pathlib.Path,
+) -> tuple[
+    list[str],
+    list[float],
+    list[float],
+    list[float],
+    list[str],
+    list[float],
+    list[float],
+    list[float],
+    np.ndarray | None
+]:
+    """Reads the noise and diffusion combination file for running batch simulations.
+
+    Args:
+        noise_and_diffusion_batch_path (pathlib.Path): path to the file
+
+    Returns:
+        diffusion_type_array (list[str]): a list of all the diffusion type
+        diffusion_xx_array (list[float]): a list of all the diffusion constant in xx. If isotropic
+            this should be the one filled for diffusion constant.
+        diffusion_xy_array (list[float]): a list of all the diffusion constant in xy.
+        diffusion_yy_array (list[float]): a list of all the diffusion constant in yy.
+        noise_type_array (list[str]): a list of all the noise type
+        noise_intensity_array (list[float]): a list of all the noise intensities
+        spatial_correlation_array (list[float]): a list of all the spatial correlation value. 
+            If white, should fill with 0.
+        temporal_correlation_array (list[float]): a list of all the temporal correlation value. 
+            If white, should fill with 0.
+    """
     with open(noise_and_diffusion_batch_path) as noise_and_diffusion_file:
         parameters = json.load(noise_and_diffusion_file)
 
         diffusion_type_array = parameters["diffusion_type_array"]
-        diffusion_constant_array = parameters["diffusion_constant_array"]
+        diffusion_xx_array = parameters["diffusion_xx_array"]
+        diffusion_xy_array = parameters["diffusion_xy_array"]
+        diffusion_yy_array = parameters["diffusion_yy_array"]
+
+        assert len(diffusion_xx_array) == len(diffusion_xy_array)
+        assert len(diffusion_xy_array) == len(diffusion_yy_array)
 
         noise_type_array = parameters["noise_type_array"]
         noise_intensity_array = parameters["noise_intensity_array"]
         spatial_correlation_array = parameters["spatial_correlation_array"]
         temporal_correlation_array = parameters["temporal_correlation_array"]
+        
+        if "cross_correlation_direction" in parameters:
+            cross_correlation_direction = np.asarray(parameters["cross_correlation_direction"])
+        else:
+            cross_correlation_direction = None
+
 
     return (
         diffusion_type_array,
-        diffusion_constant_array,
+        diffusion_xx_array,
+        diffusion_xy_array,
+        diffusion_yy_array,
         noise_type_array,
         noise_intensity_array,
         spatial_correlation_array,
         temporal_correlation_array,
+        cross_correlation_direction,
     )

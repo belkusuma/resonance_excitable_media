@@ -28,6 +28,7 @@ def animate_plot(
             cmap=cmap,
         )
         ims.append([im])
+    plt.axis("off")
 
     return animation.ArtistAnimation(fig, ims)
 

@@ -1,0 +1,10 @@
+{
+    "diffusion_type_array": ["anisotropic"],
+    "diffusion_xx_array": [1.50, 1.25, 1.0, 0.75],
+    "diffusion_xy_array": [0.0, 0.0, 0.0, 0.0],
+    "diffusion_yy_array": [0.0, 0.25, 0.5, 0.75],
+    "noise_type_array": ["white", "correlated"],
+    "noise_intensity_array": [0.05, 0.1, 0.16, 0.20, 0.24, 0.28, 0.32, 0.36, 0.50, 0.75, 1.0],
+    "temporal_correlation_array": [0.05, 0.1, 0.5, 1.0, 3.0, 5.0],
+    "spatial_correlation_array": [0.5, 1.0, 3.0, 5.0, 10.0]
+}

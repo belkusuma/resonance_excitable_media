@@ -1,0 +1,14 @@
+{
+    "discretisation": {
+        "grid_size": [128, 128],
+        "spatial_step_size": [1, 1],
+        "temporal_step_size": 0.05
+    },
+    "fitzhugh_nagumo_constants": {
+        "a" : 0.75,
+        "b": 0.01,
+        "epsilon": 0.05
+    },
+    "simulation_time": 10,
+    "ensemble_number": 16
+} 

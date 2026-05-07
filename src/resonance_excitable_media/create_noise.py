@@ -12,6 +12,7 @@ Adapted from
 import numpy as np
 from scipy.fft import ifft2
 
+
 def make_alpha_mu_upsilon(rng: np.random.Generator, grid_size: int) -> np.ndarray:
     """Generate the stochastic numbers with Gaussian distribution in the (spatial) frequency space.
     Is alpha_mu_upsilon in eq (32) of the paper, having correlation such as given in eq (33) and
@@ -25,8 +26,8 @@ def make_alpha_mu_upsilon(rng: np.random.Generator, grid_size: int) -> np.ndarra
         np.ndarray: an array of random numbers with the given correlation and size
     """
     # Calculate the middle index for convenience
-    mid_index = int(grid_size/2)
-    
+    mid_index = int(grid_size / 2)
+
     # Many of the proceeding operations only work if the grid size is even, so adjust the grid size
     # to be even.
     # If the grid size is odd, then the "the bottom row and the right column are identical with the
@@ -34,7 +35,7 @@ def make_alpha_mu_upsilon(rng: np.random.Generator, grid_size: int) -> np.ndarra
     if grid_size % 2 == 0:
         adjusted_grid_size = grid_size
     else:
-        adjusted_grid_size = grid_size-1
+        adjusted_grid_size = grid_size - 1
 
     a_mu_upsilon = np.empty((grid_size, grid_size))
     b_mu_upsilon = np.empty((grid_size, grid_size))
@@ -44,27 +45,26 @@ def make_alpha_mu_upsilon(rng: np.random.Generator, grid_size: int) -> np.ndarra
     standard_deviation = 1 / np.sqrt(2)
 
     # Generate the random numbers for a_mu_upsilon
-    # For the 'black sites' of Figure 4a, the variance is 1 for a_mu_upsilon
+    # For the 'black sites' of Figure 4a, the variance is 1 for a_mu_upsilon
     a_mu_upsilon[0, 0] = rng.standard_normal()
     a_mu_upsilon[mid_index, 0] = rng.standard_normal()
     a_mu_upsilon[0, mid_index] = rng.standard_normal()
     a_mu_upsilon[mid_index, mid_index] = rng.standard_normal()
 
-    
     # For the half top edge of the a_mu_upsilon grid (without the black sites)
-    a_mu_upsilon[1 : mid_index, 0] = (
-        standard_deviation * rng.standard_normal(size=mid_index - 1)
+    a_mu_upsilon[1:mid_index, 0] = standard_deviation * rng.standard_normal(
+        size=mid_index - 1
     )
     # For the half left edge of the grid (without the black sites)
-    a_mu_upsilon[0, 1 : mid_index] = (
-        standard_deviation * rng.standard_normal(size=mid_index -1)
+    a_mu_upsilon[0, 1:mid_index] = standard_deviation * rng.standard_normal(
+        size=mid_index - 1
     )
     # For the half middle column of the grid (without the black sites)
-    a_mu_upsilon[mid_index, 1 : mid_index] = (
-        standard_deviation * rng.standard_normal(size=mid_index - 1)
+    a_mu_upsilon[mid_index, 1:mid_index] = standard_deviation * rng.standard_normal(
+        size=mid_index - 1
     )
-    # For the rest of the shadowed cells in Figure 4b
-    a_mu_upsilon[1 : mid_index, 1 : adjusted_grid_size] = (
+    # For the rest of the shadowed cells in Figure 4b
+    a_mu_upsilon[1:mid_index, 1:adjusted_grid_size] = (
         standard_deviation
         * rng.standard_normal(size=(mid_index - 1, adjusted_grid_size - 1))
     )
@@ -77,38 +77,41 @@ def make_alpha_mu_upsilon(rng: np.random.Generator, grid_size: int) -> np.ndarra
     # the first quadrant is the flip of the third quadrant (without the middle of the grid)
     a_mu_upsilon[
         mid_index + 1 : adjusted_grid_size, mid_index + 1 : adjusted_grid_size
-    ] = np.flip(a_mu_upsilon[1 : mid_index, 1 : mid_index])
+    ] = np.flip(a_mu_upsilon[1:mid_index, 1:mid_index])
     # Fourth quadrant is the flip of the second quadrant
-    a_mu_upsilon[mid_index + 1 : adjusted_grid_size, 1 : mid_index] = (
-        np.flip(
-            a_mu_upsilon[
-                1 : mid_index, mid_index + 1: adjusted_grid_size
-            ]
-        )
+    a_mu_upsilon[mid_index + 1 : adjusted_grid_size, 1:mid_index] = np.flip(
+        a_mu_upsilon[1:mid_index, mid_index + 1 : adjusted_grid_size]
     )
     # Now we flip the numbers in the middle of the grid
-    a_mu_upsilon[mid_index, mid_index+1:adjusted_grid_size] = np.flip(a_mu_upsilon[mid_index, 1:mid_index])
-    a_mu_upsilon[mid_index+1:adjusted_grid_size, mid_index] = np.flip(a_mu_upsilon[1:mid_index, mid_index])
-    a_mu_upsilon[0, mid_index+1:adjusted_grid_size] = np.flip(a_mu_upsilon[0, 1:mid_index])
-    a_mu_upsilon[mid_index+1:adjusted_grid_size, 0] = np.flip(a_mu_upsilon[1:mid_index, 0])
-
+    a_mu_upsilon[mid_index, mid_index + 1 : adjusted_grid_size] = np.flip(
+        a_mu_upsilon[mid_index, 1:mid_index]
+    )
+    a_mu_upsilon[mid_index + 1 : adjusted_grid_size, mid_index] = np.flip(
+        a_mu_upsilon[1:mid_index, mid_index]
+    )
+    a_mu_upsilon[0, mid_index + 1 : adjusted_grid_size] = np.flip(
+        a_mu_upsilon[0, 1:mid_index]
+    )
+    a_mu_upsilon[mid_index + 1 : adjusted_grid_size, 0] = np.flip(
+        a_mu_upsilon[1:mid_index, 0]
+    )
 
     # Similarly, generate the b_mu_upsilon (imaginary part)
     # Note that for the imaginary part, the 'black sites' are zero (see A6)
     # For the half top edge of the a_mu_upsilon grid (without the black sites)
-    b_mu_upsilon[1 : mid_index, 0] = (
-        standard_deviation * rng.standard_normal(size=mid_index - 1)
+    b_mu_upsilon[1:mid_index, 0] = standard_deviation * rng.standard_normal(
+        size=mid_index - 1
     )
     # For the half left edge of the grid (without the black sites)
-    b_mu_upsilon[0, 1 : mid_index] = (
-        standard_deviation * rng.standard_normal(size=mid_index -1)
+    b_mu_upsilon[0, 1:mid_index] = standard_deviation * rng.standard_normal(
+        size=mid_index - 1
     )
     # For the half middle column of the grid (without the black sites)
-    b_mu_upsilon[mid_index, 1 : mid_index] = (
-        standard_deviation * rng.standard_normal(size=mid_index - 1)
+    b_mu_upsilon[mid_index, 1:mid_index] = standard_deviation * rng.standard_normal(
+        size=mid_index - 1
     )
-    # For the rest of the shadowed cells in Figure 4b
-    b_mu_upsilon[1 : mid_index, 1 : adjusted_grid_size] = (
+    # For the rest of the shadowed cells in Figure 4b
+    b_mu_upsilon[1:mid_index, 1:adjusted_grid_size] = (
         standard_deviation
         * rng.standard_normal(size=(mid_index - 1, adjusted_grid_size - 1))
     )
@@ -121,33 +124,35 @@ def make_alpha_mu_upsilon(rng: np.random.Generator, grid_size: int) -> np.ndarra
     # the first quadrant is the flip of the third quadrant (without the middle of the grid)
     b_mu_upsilon[
         mid_index + 1 : adjusted_grid_size, mid_index + 1 : adjusted_grid_size
-    ] = -1 * np.flip(b_mu_upsilon[1 : mid_index, 1 : mid_index])
+    ] = -1 * np.flip(b_mu_upsilon[1:mid_index, 1:mid_index])
     # Fourth quadrant is the flip of the second quadrant
-    b_mu_upsilon[mid_index + 1 : adjusted_grid_size, 1 : mid_index] = -1 * (
-        np.flip(
-            a_mu_upsilon[
-                1 : mid_index, mid_index + 1: adjusted_grid_size
-            ]
-        )
+    b_mu_upsilon[mid_index + 1 : adjusted_grid_size, 1:mid_index] = -1 * (
+        np.flip(a_mu_upsilon[1:mid_index, mid_index + 1 : adjusted_grid_size])
     )
     # Now we flip the numbers in the middle of the grid
-    b_mu_upsilon[mid_index, mid_index+1:adjusted_grid_size] = -1 * np.flip(b_mu_upsilon[mid_index, 1:mid_index])
-    b_mu_upsilon[mid_index+1:adjusted_grid_size, mid_index] = -1 * np.flip(b_mu_upsilon[1:mid_index, mid_index])
-    
-    b_mu_upsilon[0, mid_index+1:adjusted_grid_size] = -1 * np.flip(b_mu_upsilon[0, 1:mid_index])
-    b_mu_upsilon[mid_index+1:adjusted_grid_size, 0] = -1 * np.flip(b_mu_upsilon[1:mid_index, 0])
+    b_mu_upsilon[mid_index, mid_index + 1 : adjusted_grid_size] = -1 * np.flip(
+        b_mu_upsilon[mid_index, 1:mid_index]
+    )
+    b_mu_upsilon[mid_index + 1 : adjusted_grid_size, mid_index] = -1 * np.flip(
+        b_mu_upsilon[1:mid_index, mid_index]
+    )
 
+    b_mu_upsilon[0, mid_index + 1 : adjusted_grid_size] = -1 * np.flip(
+        b_mu_upsilon[0, 1:mid_index]
+    )
+    b_mu_upsilon[mid_index + 1 : adjusted_grid_size, 0] = -1 * np.flip(
+        b_mu_upsilon[1:mid_index, 0]
+    )
 
-    # If the size of the grid is odd, make the right column equal to the left column, and the 
+    # If the size of the grid is odd, make the right column equal to the left column, and the
     # bottom row equal to the top row
     if grid_size % 2 == 1:
         a_mu_upsilon[:, 0] = a_mu_upsilon[:, grid_size]
         a_mu_upsilon[0, :] = a_mu_upsilon[grid_size, :]
         b_mu_upsilon[:, 0] = b_mu_upsilon[:, grid_size]
         b_mu_upsilon[0, :] = b_mu_upsilon[grid_size, :]
-    
-    return a_mu_upsilon + 1j  * b_mu_upsilon
-    
+
+    return a_mu_upsilon + 1j * b_mu_upsilon
 
 
 def generate_spatiotemporal_correlated_noise(
@@ -184,7 +189,9 @@ def generate_spatiotemporal_correlated_noise(
     mu_meshgrid, upsilon_meshgrid = np.meshgrid(mu, upsilon)
     # Eq (17) in the paper
     c_mu_upsilon = 1 - (2 * spatial_correlation**2 / (spatial_step_size**2)) * (
-        np.cos(2 * np.pi * mu_meshgrid / grid_size) + np.cos(2 * np.pi * upsilon_meshgrid / grid_size) - 2
+        np.cos(2 * np.pi * mu_meshgrid / grid_size)
+        + np.cos(2 * np.pi * upsilon_meshgrid / grid_size)
+        - 2
     )
 
     noise_mu_upsilon = np.empty(

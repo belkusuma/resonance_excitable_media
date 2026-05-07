@@ -43,7 +43,7 @@ def own_path(
     )
 
     # Run the metrics for noise only, and then for the batch run
-    run_metrics_noise(batch_parameters, results_path, animation_save)
+    # run_metrics_noise(batch_parameters, results_path, animation_save)
     run_metrics_batch(batch_parameters, results_path, animation_save)
 
 
